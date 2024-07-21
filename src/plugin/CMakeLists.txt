@@ -1,5 +1,5 @@
 ﻿add_library(
-	sqlite SHARED
+	sqlite
 
 	main.c
 	console.c

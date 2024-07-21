@@ -6,22 +6,22 @@ function onScriptLoad()
 	db = SQLiteOpen("test.db");
 	// Create required tables if they don't exist.
 	SQLitePrepare(db,
-		"CREATE TABLE IF NOT EXISTS player_uids (" +
+		"CREATE TABLE IF NOT EXISTS player_uids ("       +
 			"uid  TEXT        NOT NULL COLLATE NOCASE, " +
-			"name TEXT UNIQUE NOT NULL" +
-		"); " +
+			"name TEXT UNIQUE NOT NULL"                  +
+		"); "                                            +
 
-		"CREATE TABLE IF NOT EXISTS player_uid2s (" +
+		"CREATE TABLE IF NOT EXISTS player_uid2s ("      +
 			"uid2 TEXT        NOT NULL COLLATE NOCASE, " +
-			"name TEXT UNIQUE NOT NULL" +
-		"); " +
+			"name TEXT UNIQUE NOT NULL"                  +
+		"); "                                            +
 
-		"CREATE TABLE IF NOT EXISTS player_ips (" +
-			"ip   TEXT        NOT NULL, " +
-			"name TEXT UNIQUE NOT NULL" +
+		"CREATE TABLE IF NOT EXISTS player_ips ("        +
+			"ip   TEXT        NOT NULL, "                +
+			"name TEXT UNIQUE NOT NULL"                  +
 		");",
 		true); // 'true' so that we can run multiple SQL statements in a single call to
-			   // SQLitePrepare().
+               // SQLitePrepare().
 }
 
 function onScriptUnload()
@@ -44,7 +44,7 @@ function onPlayerCommand(player, cmd, text)
 	case "alias":
 		if (!text)
 		{
-			MessagePlayer("/" + cmd + " <player> <UID/UID2/IP>", player);
+			PrivMessage(player, "/" + cmd + " <player> <UID/UID2/IP>");
 			return;
 		}
 
@@ -52,13 +52,13 @@ function onPlayerCommand(player, cmd, text)
 		local plr = FindPlayer(IsNum(tokens[0]) ? tokens[0].tointeger() : tokens[0]);
 		if (!plr)
 		{
-			MessagePlayer("Unknown player.", player);
+			PrivMessage(player, "Unknown player.");
 			return;
 		}
 
 		if (tokens.len() < 2)
 		{
-			MessagePlayer("Missing alias type.", player);
+			PrivMessage(player, "Missing alias type.");
 			return;
 		}
 
@@ -79,7 +79,7 @@ function onPlayerCommand(player, cmd, text)
 			break;
 
 		default:
-			MessagePlayer("Invalid alias type.", player);
+			PrivMessage(player, "Invalid alias type.");
 			return;
 		}
 
@@ -89,7 +89,7 @@ function onPlayerCommand(player, cmd, text)
 		// In case our query returned nothing...
 		if (!stmt)
 		{
-			MessagePlayer(plrName + " has no " + type + " aliases.", player);
+			PrivMessage(player, plrName + " has no " + type + " aliases.");
 			return;
 		}
 
@@ -99,10 +99,7 @@ function onPlayerCommand(player, cmd, text)
 		{
 			aliasName = SQLiteColumnData(stmt, 0);
 			// Don't include plr name in the alias list because we already know their name...
-			if (aliasName == plrName)
-			{
-				continue;
-			}
+			if (aliasName == plrName) { continue; }
 
 			aliasList = aliasList ? (aliasList + ", " + aliasName) : aliasName;
 		}
@@ -111,11 +108,11 @@ function onPlayerCommand(player, cmd, text)
 
 		if (!aliasList)
 		{
-			MessagePlayer(plrName + " has no " + type + " aliases.", player);
+			PrivMessage(player, plrName + " has no " + type + " aliases.");
 			return;
 		}
 
-		MessagePlayer(plrName + "'s " + type + " aliases: " + aliasList + ".", player);
+		PrivMessage(player, plrName + "'s " + type + " aliases: " + aliasList + ".");
 		return;
 
 		// As you can see, we don't call any sort of function (or set 'stmt' to null as explained
@@ -134,30 +131,30 @@ function InsertPlayerAlias(player)
 	local name = player.Name;
 	SQLitePrepare(db,
 		// UID
-		"INSERT OR IGNORE INTO player_uids (" +
-			"uid, " +
-			"name" +
-		") VALUES (" +
-			"'" + player.UniqueID + "', " +
-			"'" + name +"'" +
-		"); " +
+		"INSERT OR IGNORE INTO player_uids ("  +
+			"uid, "                            +
+			"name"                             +
+		") VALUES ("                           +
+			"'" + player.UniqueID + "', "      +
+			"'" + name +"'"                    +
+		"); "                                  +
 
 		// UID2
 		"INSERT OR IGNORE INTO player_uid2s (" +
-			"uid2, " +
-			"name" +
-		") VALUES (" +
-			"'" + player.UniqueID2 + "', " +
-			"'" + name +"'" +
-		"); " +
+			"uid2, "                           +
+			"name"                             +
+		") VALUES ("                           +
+			"'" + player.UniqueID2 + "', "     +
+			"'" + name +"'"                    +
+		"); "                                  +
 
 		// IP
-		"INSERT OR IGNORE INTO player_ips (" +
-			"ip, " +
-			"name" +
-		") VALUES (" +
-			"'" + player.IP + "', " +
-			"'" + name +"'" +
+		"INSERT OR IGNORE INTO player_ips ("   +
+			"ip, "                             +
+			"name"                             +
+		") VALUES ("                           +
+			"'" + player.IP + "', "            +
+			"'" + name +"'"                    +
 		");",
 		true);
 }

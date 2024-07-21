@@ -5,9 +5,7 @@
 // Requires SQModule.h for full functionality of HSQAPI.
 //
 
-#ifndef SQIMPORTS_H
-#define SQIMPORTS_H
-
+#pragma once
 #include "SQModule.h"
 
 typedef HSQAPI * (*Sq_GetSquirrelAPI) (void);
@@ -19,5 +17,3 @@ typedef struct
 	Sq_GetSquirrelAPI	GetSquirrelAPI;
 	Sq_GetSquirrelVM	GetSquirrelVM;
 } SquirrelImports;
-
-#endif

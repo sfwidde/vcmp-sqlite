@@ -7,7 +7,6 @@
 #endif
 
 extern HSQAPI sq;
-extern HSQUIRRELVM v;
 
 static SQInteger DatabaseHandleReleaseHook(SQUserPointer, SQInteger);
 static SQInteger PreparedStatementReleaseHook(SQUserPointer, SQInteger);
@@ -40,35 +39,16 @@ static SQInteger SQLiteOpen(HSQUIRRELVM v)
 static SQInteger SQLitePrepare(HSQUIRRELVM v)
 {
 	SQUserPointer p;
-	if (SQ_FAILED(sq->getuserdata(v, 2, &p, NULL)))
-	{
-		return sq->throwerror(v, _SC("unable to retrieve database handle"));
-	}
-
 	const SQChar* sql;
-	if (SQ_FAILED(sq->getstring(v, 3, &sql)))
-	{
-		return sq->throwerror(v, _SC("unable to retrieve SQL statement"));
-	}
+	if (SQ_FAILED(sq->getuserdata(v, 2, &p, NULL))) { return sq->throwerror(v, _SC("unable to retrieve database handle")); }
+	if (SQ_FAILED(sq->getstring(v, 3, &sql)))       { return sq->throwerror(v, _SC("unable to retrieve SQL statement"));   }
 
 	SQInteger argumentCount = sq->gettop(v);
 	SQBool executeOnly;
-	if (argumentCount < 4)
-	{
-		executeOnly = SQFalse;
-	}
-	else if (argumentCount > 4)
-	{
-		return sq->throwerror(v, _SC("wrong number of parameters"));
-	}
-	else if (sq->gettype(v, 4) != OT_BOOL)
-	{
-		return sq->throwerror(v, _SC("'execute only' conditional must be of type bool"));
-	}
-	else if (SQ_FAILED(sq->getbool(v, 4, &executeOnly)))
-	{
-		return sq->throwerror(v, _SC("unable to retrieve 'execute only' conditional"));
-	}
+	if      (argumentCount < 4)                          { executeOnly = SQFalse;                                                            }
+	else if (argumentCount > 4)                          { return sq->throwerror(v, _SC("wrong number of parameters"));                      }
+	else if (sq->gettype(v, 4) != OT_BOOL)               { return sq->throwerror(v, _SC("'execute only' conditional must be of type bool")); }
+	else if (SQ_FAILED(sq->getbool(v, 4, &executeOnly))) { return sq->throwerror(v, _SC("unable to retrieve 'execute only' conditional"));   }
 
 	sqlite3* db = *(sqlite3**)p;
 	if (executeOnly)
@@ -124,24 +104,20 @@ static SQInteger SQLiteColumnCount(HSQUIRRELVM v)
 static SQInteger SQLiteColumnData(HSQUIRRELVM v)
 {
 	SQUserPointer p;
-	if (SQ_FAILED(sq->getuserdata(v, 2, &p, NULL)))
-	{
-		return sq->throwerror(v, _SC("unable to retrieve prepared statement"));
-	}
-
 	SQInteger columnIndex;
-	if (SQ_FAILED(sq->getinteger(v, 3, &columnIndex)))
-	{
-		return sq->throwerror(v, _SC("unable to retrieve column index"));
-	}
+	if (SQ_FAILED(sq->getuserdata(v, 2, &p, NULL)))    { return sq->throwerror(v, _SC("unable to retrieve prepared statement")); }
+	if (SQ_FAILED(sq->getinteger(v, 3, &columnIndex))) { return sq->throwerror(v, _SC("unable to retrieve column index"));       }
 
 	sqlite3_stmt* stmt = *(sqlite3_stmt**)p;
+	int colIdx;
 #ifdef _SQ64
-	int colIdx = (columnIndex > INT_MAX) ? INT_MAX : (int)columnIndex;
+	if      (columnIndex > INT_MAX) { colIdx = INT_MAX;          }
+	else if (columnIndex < INT_MIN) { colIdx = INT_MIN;          }
+	else                            { colIdx = (int)columnIndex; }
 #else
-	int colIdx = columnIndex;
+	colIdx = columnIndex;
 #endif
-	if (colIdx < 0 || colIdx > (sqlite3_column_count(stmt) - 1))
+	if ((colIdx < 0) || (colIdx > (sqlite3_data_count(stmt) - 1)))
 	{
 		return sq->throwerror(v, _SC("column index is out of bounds"));
 	}
@@ -199,7 +175,7 @@ SQInteger DatabaseHandleReleaseHook(SQUserPointer p, SQInteger size)
 	sqlite3* db = *(sqlite3**)p;
 	if (sqlite3_close(db) != SQLITE_OK)
 	{
-		PrintConsoleMessage(CONSOLE_WARNING_MESSAGE, "Release hook SQLite error: '%s'.", sqlite3_errmsg(db));
+		OUTPUT_WARNING("Release hook SQLite error: '%s'.", sqlite3_errmsg(db));
 	}
 	return 1;
 }
@@ -210,10 +186,10 @@ SQInteger PreparedStatementReleaseHook(SQUserPointer p, SQInteger size)
 	return 1;
 }
 
-// Files in ../squirrel/ and the following function were taken from here:
+// The following function was taken from here:
 // https://forum.vc-mp.org/index.php?topic=206.msg3206#msg3206
-// This function however is slightly modified for convenience.
-static void RegisterSquirrelFunction(SQFUNCTION function, const SQChar* functionName,
+// It is, however, slightly modified for convenience.
+static void RegisterSquirrelFunction(HSQUIRRELVM v, SQFUNCTION function, const SQChar* functionName,
 	SQInteger parameterCount, const SQChar* parameterMask)
 {
 	sq->pushroottable(v);
@@ -225,15 +201,17 @@ static void RegisterSquirrelFunction(SQFUNCTION function, const SQChar* function
 	sq->pop(v, 1);
 }
 
-#define REG_SQ_FUNC(function, parameterCount, parameterMask) \
-	RegisterSquirrelFunction(function, _SC(#function), parameterCount, _SC(parameterMask))
+#define REGISTER_SQ_FUNCTION(v, function, parameterCount, parameterMask) \
+	RegisterSquirrelFunction((v), (function), _SC(#function), (parameterCount), _SC(parameterMask))
 
-void RegisterSQLiteFunctions(void)
+void RegisterSquirrelFunctions(HSQUIRRELVM v)
 {
-	REG_SQ_FUNC(SQLiteOpen, SQ_MATCHTYPEMASKSTRING, "ts");
-	REG_SQ_FUNC(SQLitePrepare, -3, "tus");
-	REG_SQ_FUNC(SQLiteStep, SQ_MATCHTYPEMASKSTRING, "tu");
-	REG_SQ_FUNC(SQLiteColumnCount, SQ_MATCHTYPEMASKSTRING, "tu");
-	REG_SQ_FUNC(SQLiteColumnData, SQ_MATCHTYPEMASKSTRING, "tui");
-	REG_SQ_FUNC(SQLiteEscapeString, SQ_MATCHTYPEMASKSTRING, "ts");
+	REGISTER_SQ_FUNCTION(v, SQLiteOpen,         SQ_MATCHTYPEMASKSTRING, "ts");
+	REGISTER_SQ_FUNCTION(v, SQLitePrepare,      -3,                     "tus");
+	REGISTER_SQ_FUNCTION(v, SQLiteStep,         SQ_MATCHTYPEMASKSTRING, "tu");
+	REGISTER_SQ_FUNCTION(v, SQLiteColumnCount,  SQ_MATCHTYPEMASKSTRING, "tu");
+	REGISTER_SQ_FUNCTION(v, SQLiteColumnData,   SQ_MATCHTYPEMASKSTRING, "tui");
+	REGISTER_SQ_FUNCTION(v, SQLiteEscapeString, SQ_MATCHTYPEMASKSTRING, "ts");
 }
+
+#undef REGISTER_SQ_FUNCTION
